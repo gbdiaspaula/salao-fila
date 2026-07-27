@@ -5,11 +5,17 @@
   <title>Relatório de Atendimentos</title>
   <style>
     body { font-family: sans-serif; padding: 20px; background: #f4f4f9; }
-    .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 900px; margin: auto; }
-    .filtros { display: flex; gap: 10px; margin-bottom: 20px; align-items: center; }
-    input, button { padding: 8px 12px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; }
-    button { background: #28a745; color: white; border: none; cursor: pointer; font-weight: bold; }
-    button:hover { background: #218838; }
+    .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 950px; margin: auto; }
+    .filtros { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; align-items: center; }
+    .campo-filtro { display: flex; align-items: center; gap: 5px; }
+    input, select, button { padding: 8px 12px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; }
+    
+    .btn-buscar { background: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; }
+    .btn-buscar:hover { background: #0069d9; }
+    
+    .btn-excel { background: #28a745; color: white; border: none; cursor: pointer; font-weight: bold; margin-left: auto; }
+    .btn-excel:hover { background: #218838; }
+
     table { width: 100%; border-collapse: collapse; margin-top: 15px; }
     th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
     th { background: #007bff; color: white; }
@@ -22,11 +28,30 @@
   <h2>📊 Relatório de Atendimentos</h2>
 
   <div class="filtros">
-    <label>Início:</label>
-    <input type="date" id="dataInicio">
-    <label>Fim:</label>
-    <input type="date" id="dataFim">
-    <button onclick="carregarRelatorio()">🔍 Buscar</button>
+    <div class="campo-filtro">
+      <label>Início:</label>
+      <input type="date" id="dataInicio">
+    </div>
+
+    <div class="campo-filtro">
+      <label>Fim:</label>
+      <input type="date" id="dataFim">
+    </div>
+
+    <div class="campo-filtro">
+      <label>Profissional:</label>
+      <select id="filtroProfissional">
+        <option value="">Todos</option>
+      </select>
+    </div>
+
+    <div class="campo-filtro">
+      <label>Cliente:</label>
+      <input type="text" id="filtroCliente" placeholder="Nome da cliente...">
+    </div>
+
+    <button class="btn-buscar" onclick="carregarRelatorio()">🔍 Buscar</button>
+    <button class="btn-excel" onclick="exportarExcel()">📥 Exportar para Excel</button>
   </div>
 
   <table>
@@ -40,20 +65,42 @@
       </tr>
     </thead>
     <tbody id="tabelaDados">
-      <tr><td colspan="5" style="text-align:center;">Selecione as datas e clique em Buscar.</td></tr>
+      <tr><td colspan="5" style="text-align:center;">Selecione os filtros e clique em Buscar.</td></tr>
     </tbody>
   </table>
 </div>
 
 <script>
-  // Define a data de hoje nos inputs por padrão
+  let dadosRelatorioAtual = [];
+
+  // Define a data de hoje nos inputs por padrão ao carregar
   const hoje = new Date().toISOString().split('T')[0];
   document.getElementById('dataInicio').value = hoje;
   document.getElementById('dataFim').value = hoje;
 
+  // Carrega a lista de profissionais para preencher o <select>
+  async function carregarProfissionais() {
+    try {
+      const res = await fetch('/api/profissionais');
+      const profissionais = await res.json();
+      const select = document.getElementById('filtroProfissional');
+      
+      profissionais.forEach(p => {
+        const option = document.createElement('option');
+        option.value = p.nome;
+        option.textContent = p.nome;
+        select.appendChild(option);
+      });
+    } catch (erro) {
+      console.error("Erro ao carregar lista de profissionais:", erro);
+    }
+  }
+
   async function carregarRelatorio() {
     const inicio = document.getElementById('dataInicio').value;
     const fim = document.getElementById('dataFim').value;
+    const profFiltro = document.getElementById('filtroProfissional').value.toLowerCase();
+    const cliFiltro = document.getElementById('filtroCliente').value.toLowerCase().trim();
 
     if (!inicio || !fim) {
       alert("Por favor, selecione as datas de início e fim.");
@@ -62,20 +109,29 @@
 
     try {
       const res = await fetch(`/api/relatorio?dataInicio=${inicio}&dataFim=${fim}`);
-      const dados = await res.json();
+      let dados = await res.json();
+
+      // Aplica os filtros locais por profissional e por cliente
+      if (profFiltro) {
+        dados = dados.filter(item => item.profissional && item.profissional.toLowerCase().includes(profFiltro));
+      }
+
+      if (cliFiltro) {
+        dados = dados.filter(item => item.cliente && item.cliente.toLowerCase().includes(cliFiltro));
+      }
+
+      dadosRelatorioAtual = dados; // Salva para exportação
 
       const tbody = document.getElementById('tabelaDados');
       tbody.innerHTML = '';
 
       if (!dados || dados.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Nenhum registo encontrado neste período.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Nenhum registro encontrado para estes filtros.</td></tr>';
         return;
       }
 
       dados.forEach(item => {
         const tr = document.createElement('tr');
-        
-        // Garante a leitura da propriedade 'horario' ou 'data_criacao'
         const horarioExibir = item.horario || item.data_criacao || 'N/D';
 
         tr.innerHTML = `
@@ -93,7 +149,35 @@
     }
   }
 
-  // Carrega automaticamente ao abrir a página
+  // Função para exportar os dados exibidos para Excel / Google Sheets (.csv)
+  function exportarExcel() {
+    if (!dadosRelatorioAtual || dadosRelatorioAtual.length === 0) {
+      alert("Não há dados na tabela para exportar!");
+      return;
+    }
+
+    // Cabeçalho do arquivo
+    let csvContent = "\uFEFFID;Data e Hora;Cliente;Profissional;Servico\n";
+
+    // Adiciona as linhas
+    dadosRelatorioAtual.forEach(row => {
+      const hora = row.horario || row.data_criacao || '';
+      csvContent += `"${row.id}";"${hora}";"${row.cliente}";"${row.profissional}";"${row.servico}"\n`;
+    });
+
+    // Cria o link de download automático
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `relatorio_atendimentos_${document.getElementById('dataInicio').value}_a_${document.getElementById('dataFim').value}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  // Inicializa o select e os dados
+  carregarProfissionais();
   carregarRelatorio();
 </script>
 
