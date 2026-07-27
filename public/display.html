@@ -3,139 +3,52 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Display de Chamadas - Salão</title>
+  <title>Display - Chamadas</title>
   <script src="/socket.io/socket.io.js"></script>
   <style>
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background-color: #1a1a2e;
-      color: #fff;
+      font-family: Arial, sans-serif;
+      background-color: #121212;
+      color: #ffffff;
       margin: 0;
       padding: 20px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      min-height: 90vh;
+      text-align: center;
     }
 
     h1 {
-      color: #e94560;
-      font-size: 2.5rem;
-      margin-bottom: 20px;
+      font-size: 3rem;
+      margin-bottom: 30px;
+      color: #f39c12;
       text-transform: uppercase;
-      letter-spacing: 2px;
     }
 
-    .painel {
-      width: 100%;
-      max-width: 900px;
+    .container {
       display: flex;
       flex-direction: column;
-      gap: 15px;
+      align-items: center;
+      gap: 20px;
     }
 
-    .card-chamada {
-      background: #16213e;
-      border-left: 8px solid #00fff0;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-      animation: popIn 0.5s ease-out;
-    }
-
-    .cliente-nome {
-      font-size: 2rem;
-      font-weight: bold;
-      color: #00fff0;
-      margin-bottom: 10px;
-    }
-
-    .lista-servicos {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-
-    .item-servico {
-      font-size: 1.3rem;
-      background: #0f3460;
-      padding: 8px 12px;
-      border-radius: 6px;
-      margin-top: 5px;
+    .card {
+      background-color: #1e1e1e;
+      border-left: 10px solid #27ae60;
+      border-radius: 8px;
+      padding: 20px 40px;
+      width: 80%;
+      max-width: 800px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
       display: flex;
       justify-content: space-between;
+      align-items: center;
+      animation: aparecer 0.5s ease-in-out;
     }
 
-    .prof-nome {
-      color: #e94560;
+    .cliente {
+      font-size: 2.5rem;
       font-weight: bold;
+      color: #ffffff;
+      text-transform: uppercase;
+      text-align: left;
     }
 
-    @keyframes popIn {
-      0% { transform: scale(0.8); opacity: 0; }
-      100% { transform: scale(1); opacity: 1; }
-    }
-  </style>
-</head>
-<body>
-
-  <h1>🔊 Chamadas em Andamento</h1>
-
-  <div class="painel" id="painelChamadas">
-    </div>
-
-  <script>
-    // Conecta ao Socket.io do servidor
-    const socket = io();
-
-    // Toca um aviso sonoro simples ao receber chamada
-    function tocarAlerta() {
-      try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = audioCtx.createOscillator();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
-        osc.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.3);
-      } catch (e) {
-        console.log("Áudio bloqueado pelo navegador até interação prévia.");
-      }
-    }
-
-    // Escuta o evento de nova chamada vindo do servidor
-    socket.on('nova_chamada', (dados) => {
-      console.log('Nova chamada recebida:', dados);
-      tocarAlerta();
-
-      const painel = document.getElementById('painelChamadas');
-
-      // Monta os itens do serviço prestado
-      let itensHTML = '';
-      if (dados.itens && Array.isArray(dados.itens)) {
-        dados.itens.forEach(item => {
-          itensHTML += `
-            <li class="item-servico">
-              <span>💇‍♀️ <strong>${item.servico}</strong></span>
-              <span class="prof-nome">👤 ${item.profissional}</span>
-            </li>
-          `;
-        });
-      }
-
-      // Cria o elemento visual do card
-      const card = document.createElement('div');
-      card.className = 'card-chamada';
-      card.innerHTML = `
-        <div class="cliente-nome">👤 ${dados.cliente.toUpperCase()}</div>
-        <ul class="lista-servicos">
-          ${itensHTML}
-        </ul>
-      `;
-
-      // Insere no topo da tela do Display
-      painel.insertBefore(card, painel.firstChild);
-    });
-  </script>
-</body>
-</html>
+    .
