@@ -3,116 +3,135 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Display - Chamadas</title>
-  <script src="/socket.io/socket.io.js"></script>
+  <title>Display - Sala dos Profissionais</title>
   <style>
-    /* SEU CSS ORIGINAL DE ONTEM */
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #121212;
-      color: #ffffff;
-      margin: 0;
-      padding: 20px;
-      text-align: center;
-    }
+    * { box-sizing: border-box; }
+    body { font-family: sans-serif; background: #111; color: #fff; margin: 0; padding: 20px; height: 100vh; display: flex; flex-direction: column; }
+    
+    .aviso-audio { background: #333; color: #ffca28; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 14px; text-align: center; cursor: pointer; }
 
-    h1 {
-      font-size: 3rem;
-      margin-bottom: 30px;
-      color: #f39c12;
-      text-transform: uppercase;
-    }
+    /* Layout Principal em 2 Colunas */
+    .container { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; flex: 1; min-height: 0; }
 
-    .container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 20px;
-    }
+    /* Painel Esquerdo - Chamada Principal */
+    .painel-principal { background: #1a261f; border: 3px solid #00ff88; padding: 30px; border-radius: 16px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; box-shadow: 0 0 20px rgba(0, 255, 136, 0.15); }
+    .titulo-principal { font-size: 1.5rem; color: #888; text-transform: uppercase; margin-bottom: 10px; }
+    .horario-destaque { font-size: 1.8rem; color: #ffca28; font-weight: bold; margin-bottom: 15px; background: rgba(255, 202, 40, 0.1); padding: 5px 15px; border-radius: 20px; }
+    .profissional-nome { font-size: 3.5rem; color: #00ff88; margin: 0; font-weight: bold; }
+    .cliente-nome { font-size: 2.2rem; color: #fff; margin: 15px 0 5px 0; }
+    
+    /* DESTAQUE DO SERVIÇO NO PAINEL PRINCIPAL */
+    .servico-nome { font-size: 1.8rem; color: #ffca28; margin: 10px 0 0 0; font-weight: bold; background: rgba(255, 255, 255, 0.05); padding: 8px 20px; border-radius: 8px; border: 1px solid #444; }
 
-    .card {
-      background-color: #1e1e1e;
-      border-left: 10px solid #27ae60;
-      border-radius: 8px;
-      padding: 20px 40px;
-      width: 80%;
-      max-width: 800px;
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      animation: aparecer 0.5s ease-in-out;
-    }
-
-    .cliente {
-      font-size: 2.5rem;
-      font-weight: bold;
-      color: #ffffff;
-      text-transform: uppercase;
-      text-align: left;
-    }
-
-    .detalhes {
-      text-align: right;
-    }
-
-    .servico {
-      font-size: 1.8rem;
-      color: #3498db;
-      font-weight: bold;
-    }
-
-    .profissional {
-      font-size: 1.4rem;
-      color: #bdc3c7;
-    }
-
-    @keyframes aparecer {
-      from {
-        opacity: 0;
-        transform: translateY(-20px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
+    /* Painel Direito - Histórico */
+    .painel-historico { background: #1e1e1e; border: 1px solid #333; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; }
+    .titulo-historico { font-size: 1.2rem; color: #aaa; text-transform: uppercase; margin-top: 0; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+    .lista-chamados { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+    
+    /* Item do Histórico com Serviço */
+    .item-chamado { background: #2a2a2a; padding: 12px 15px; border-radius: 8px; border-left: 4px solid #00ff88; display: flex; justify-content: space-between; align-items: center; }
+    .info-pessoa { display: flex; flex-direction: column; text-align: left; }
+    .item-prof { font-weight: bold; color: #00ff88; font-size: 1.1rem; }
+    .item-cli { color: #ddd; font-size: 0.95rem; }
+    .item-servico { color: #ffca28; font-size: 0.85rem; font-weight: bold; margin-top: 2px; }
+    .item-hora { color: #aaa; font-weight: bold; font-size: 0.9rem; }
   </style>
 </head>
 <body>
 
-  <h1>🔔 Chamadas Recentes</h1>
+  <div class="aviso-audio" onclick="ativarAudio()">
+    🔊 Clique aqui ou em qualquer lugar da tela para garantir que o áudio/voz funcione!
+  </div>
 
-  <div class="container" id="lista-chamadas">
+  <div class="container">
+    <div class="painel-principal">
+      <div class="titulo-principal">Último Chamado</div>
+      <div class="horario-destaque" id="horaAtual">--:--</div>
+      <h1 class="profissional-nome" id="profAtual">AGUARDANDO...</h1>
+      <h2 class="cliente-nome" id="cliAtual">Aguardando recepção</h2>
+      <div class="servico-nome" id="servAtual">Aguardando Serviço...</div>
     </div>
 
+    <div class="painel-historico">
+      <h3 class="titulo-historico">Últimos Chamados</h3>
+      <ul class="lista-chamados" id="listaHistorico"></ul>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
+    const historico = [];
 
-    socket.on('nova_chamada', (dados) => {
-      const container = document.getElementById('lista-chamadas');
+    function ativarAudio() {
+      // Pequeno bipe silencioso para liberar o Web Speech API do navegador
+      const msg = new SpeechSynthesisUtterance('');
+      window.speechSynthesis.speak(msg);
+    }
 
-      // Adaptação rápida para ler múltiplos itens mantendo a formatação original
-      let servicoTexto = dados.servico || '';
-      let profissionalTexto = dados.profissional || '';
+    // Ouve o evento emitido pelo server.js
+    socket.on('nova_chamada', (data) => {
+      // 1. Tratamento das variáveis para suportar Múltiplos Itens ou Formato Simples
+      let profTexto = '';
+      let servTexto = '';
 
-      if (dados.itens && Array.isArray(dados.itens)) {
-        servicoTexto = dados.itens.map(i => i.servico).join(' + ');
-        profissionalTexto = dados.itens.map(i => i.profissional).join(', ');
+      if (data.itens && Array.isArray(data.itens) && data.itens.length > 0) {
+        profTexto = data.itens.map(i => i.profissional).join(', ');
+        servTexto = data.itens.map(i => i.servico).join(' + ');
+      } else {
+        profTexto = data.profissional || 'Atendimento';
+        servTexto = data.servico || 'Serviço Geral';
       }
 
-      // Estrutura EXATA do Card de Ontem
-      const card = document.createElement('div');
-      card.className = 'card';
-      card.innerHTML = `
-        <div class="cliente">${dados.cliente}</div>
-        <div class="detalhes">
-          <div class="servico">${servicoTexto}</div>
-          <div class="profissional">${profissionalTexto}</div>
-        </div>
-      `;
+      // Gera o horário local (Ex: 14:35) caso o servidor não tenha enviado
+      const agora = new Date();
+      const horario = data.horario || agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-      container.insertBefore(card, container.firstChild);
+      // 2. Atualiza o painel principal
+      document.getElementById('horaAtual').innerText = `🕒 ${horario}`;
+      document.getElementById('profAtual').innerText = profTexto.toUpperCase();
+      document.getElementById('cliAtual').innerText = `Atender: ${data.cliente}`;
+      document.getElementById('servAtual').innerText = `Serviço: ${servTexto}`;
+
+      // 3. Atualiza o Histórico (Máximo 6 itens)
+      const objetoHistorico = {
+        profissional: profTexto,
+        cliente: data.cliente,
+        servico: servTexto,
+        horario: horario
+      };
+
+      historico.unshift(objetoHistorico);
+      if (historico.length > 6) historico.pop();
+
+      const listaUl = document.getElementById('listaHistorico');
+      listaUl.innerHTML = '';
+
+      historico.forEach((item) => {
+        const li = document.createElement('li');
+        li.className = 'item-chamado';
+        li.innerHTML = `
+          <div class="info-pessoa">
+            <span class="item-prof">${item.profissional}</span>
+            <span class="item-cli">Cliente: ${item.cliente}</span>
+            <span class="item-servico">🛠️ ${item.servico}</span>
+          </div>
+          <span class="item-hora">${item.horario}</span>
+        `;
+        listaUl.appendChild(li);
+      });
+
+      // 4. Anúncio de Voz em Português
+      try {
+        window.speechSynthesis.cancel(); // Para qualquer fala em andamento
+        const textoMensagem = `Profissional ${profTexto}, favor atender a cliente ${data.cliente} para ${servTexto}`;
+        const mensagem = new SpeechSynthesisUtterance(textoMensagem);
+        mensagem.lang = 'pt-BR';
+        mensagem.rate = 0.9;
+        window.speechSynthesis.speak(mensagem);
+      } catch (e) {
+        console.error("Erro ao reproduzir voz:", e);
+      }
     });
   </script>
 </body>
