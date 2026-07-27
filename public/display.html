@@ -6,19 +6,14 @@
   <title>Display - Chamadas</title>
   <script src="/socket.io/socket.io.js"></script>
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
+    /* SEU CSS ORIGINAL DE ONTEM */
     body {
       font-family: Arial, sans-serif;
       background-color: #121212;
       color: #ffffff;
+      margin: 0;
       padding: 20px;
       text-align: center;
-      min-height: 100vh;
     }
 
     h1 {
@@ -28,43 +23,11 @@
       text-transform: uppercase;
     }
 
-    /* Tela de Início / Liberação de Áudio */
-    #overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: #121212;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 999;
-    }
-
-    #btn-iniciar {
-      background-color: #27ae60;
-      color: white;
-      border: none;
-      padding: 20px 40px;
-      font-size: 1.8rem;
-      font-weight: bold;
-      border-radius: 10px;
-      cursor: pointer;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-    }
-
-    #btn-iniciar:hover {
-      background-color: #219150;
-    }
-
-    /* Container de Cards */
     .container {
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 20px;
-      width: 100%;
     }
 
     .card {
@@ -72,7 +35,7 @@
       border-left: 10px solid #27ae60;
       border-radius: 8px;
       padding: 20px 40px;
-      width: 90%;
+      width: 80%;
       max-width: 800px;
       box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
       display: flex;
@@ -118,53 +81,39 @@
 </head>
 <body>
 
-  <div id="overlay">
-    <button id="btn-iniciar" onclick="iniciarDisplay()">▶️ Clique para Iniciar o Display</button>
-  </div>
-
   <h1>🔔 Chamadas Recentes</h1>
 
   <div class="container" id="lista-chamadas">
     </div>
 
   <script>
-    let socket;
+    const socket = io();
 
-    function iniciarDisplay() {
-      // Esconde a tela de início
-      document.getElementById('overlay').style.display = 'none';
+    socket.on('nova_chamada', (dados) => {
+      const container = document.getElementById('lista-chamadas');
 
-      // Conecta ao Socket.io
-      socket = io();
+      // Adaptação rápida para ler múltiplos itens mantendo a formatação original
+      let servicoTexto = dados.servico || '';
+      let profissionalTexto = dados.profissional || '';
 
-      // Ouve os eventos de chamadas
-      socket.on('nova_chamada', (dados) => {
-        const container = document.getElementById('lista-chamadas');
+      if (dados.itens && Array.isArray(dados.itens)) {
+        servicoTexto = dados.itens.map(i => i.servico).join(' + ');
+        profissionalTexto = dados.itens.map(i => i.profissional).join(', ');
+      }
 
-        let textoServicos = '';
-        let textoProfissionais = '';
+      // Estrutura EXATA do Card de Ontem
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <div class="cliente">${dados.cliente}</div>
+        <div class="detalhes">
+          <div class="servico">${servicoTexto}</div>
+          <div class="profissional">${profissionalTexto}</div>
+        </div>
+      `;
 
-        if (dados.itens && Array.isArray(dados.itens)) {
-          textoServicos = dados.itens.map(i => i.servico).join(' + ');
-          textoProfissionais = dados.itens.map(i => i.profissional).join(', ');
-        } else {
-          textoServicos = dados.servico || '';
-          textoProfissionais = dados.profissional || '';
-        }
-
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.innerHTML = `
-          <div class="cliente">${dados.cliente}</div>
-          <div class="detalhes">
-            <div class="servico">${textoServicos}</div>
-            <div class="profissional">${textoProfissionais}</div>
-          </div>
-        `;
-
-        container.insertBefore(card, container.firstChild);
-      });
-    }
+      container.insertBefore(card, container.firstChild);
+    });
   </script>
 </body>
 </html>
