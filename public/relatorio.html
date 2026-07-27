@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Relatório de Atendimentos</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; max-width: 900px; margin: auto; background-color: #f8f9fa; }
+    .card { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    h2, h3 { margin-top: 0; color: #333; }
+    
+    .filtros { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 20px; }
+    .campo { display: flex; flex-direction: column; }
+    label { font-size: 13px; font-weight: bold; color: #555; margin-bottom: 5px; }
+    input[type="date"] { padding: 8px 12px; font-size: 14px; border: 1px solid #ccc; border-radius: 6px; }
+    
+    button { padding: 9px 16px; font-size: 14px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; }
+    .btn-filtrar { background: #007bff; color: white; }
+    .btn-filtrar:hover { background: #0056b3; }
+    
+    /* Botão do Excel */
+    .btn-excel { background: #28a745; color: white; }
+    .btn-excel:hover { background: #218838; }
+    
+    /* Resumo em Cards */
+    .resumo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+    .box-resumo { background: #e9ecef; padding: 15px; border-radius: 8px; text-align: center; }
+    .box-resumo h4 { margin: 0; color: #6c757d; font-size: 14px; text-transform: uppercase; }
+    .box-resumo p { margin: 10px 0 0 0; font-size: 24px; font-weight: bold; color: #212529; }
+
+    /* Tabela */
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #dee2e6; }
+    th { background-color: #343a40; color: white; }
+    tr:nth-child(even) { background-color: #f2f2f2; }
+  </style>
+</head>
+<body>
+
+  <h2>📊 Relatório de Atendimentos</h2>
+
+  <div class="card">
+    <div class="filtros">
+      <div class="campo">
+        <label for="dataInicio">Data Inicial:</label>
+        <input type="date" id="dataInicio">
+      </div>
+      <div class="campo">
+        <label for="dataFim">Data Final:</label>
+        <input type="date" id="dataFim">
+      </div>
+      <button class="btn-filtrar" onclick="carregarRelatorio()">🔍 Filtrar</button>
+      <button class="btn-excel" onclick="exportarExcel()">📥 Exportar para Excel / Google Planilhas</button>
+    </div>
+
+    <div class="resumo-grid">
+      <div class="box-resumo">
+        <h4>Total de Atendimentos</h4>
+        <p id="totalAtendimentos">0</p>
+      </div>
+      <div class="box-resumo">
+        <h4>Profissional + Ativo</h4>
+        <p id="profMaisAtivo">-</p>
+      </div>
+    </div>
+
+    <h3>Histórico de Chamadas</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Horário</th>
+          <th>Cliente</th>
+          <th>Profissional</th>
+          <th>Serviço</th>
+          <th>Data</th>
+        </tr>
+      </thead>
+      <tbody id="tabelaCorpo">
+        <tr>
+          <td colspan="5" style="text-align: center;">Clique em filtrar para carregar os dados.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    // Armazena temporariamente os dados carregados do relatório
+    let dadosAtuais = [];
+
+    // Define a data de hoje como padrão nos campos
+    const hoje = new Date().toISOString().split('T')[0];
+    document.getElementById('dataInicio').value = hoje;
+    document.getElementById('dataFim').value = hoje;
+
+    async function carregarRelatorio() {
+      const dataInicio = document.getElementById('dataInicio').value;
+      const dataFim = document.getElementById('dataFim').value;
+
+      try {
+        const resposta = await fetch(`/api/relatorio?dataInicio=${dataInicio}&dataFim=${dataFim}`);
+        dadosAtuais = await resposta.json();
+
+        const tabelaCorpo = document.getElementById('tabelaCorpo');
+        tabelaCorpo.innerHTML = '';
+
+        if (!dadosAtuais || dadosAtuais.length === 0) {
+          tabelaCorpo.innerHTML = '<tr><td colspan="5" style="text-align: center;">Nenhum atendimento encontrado para o período selecionado.</td></tr>';
+          document.getElementById('totalAtendimentos').innerText = '0';
+          document.getElementById('profMaisAtivo').innerText = '-';
+          return;
+        }
+
+        // Atualiza total de atendimentos
+        document.getElementById('totalAtendimentos').innerText = dadosAtuais.length;
+
+        // Calcula profissional mais ativo no período
+        const contagemProf = {};
+        dadosAtuais.forEach(item => {
+          contagemProf[item.profissional] = (contagemProf[item.profissional] || 0) + 1;
+        });
+
+        let maisAtivo = '-';
+        let maxAtendimentos = 0;
+        for (const [prof, qtd] of Object.entries(contagemProf)) {
+          if (qtd > maxAtendimentos) {
+            maxAtendimentos = qtd;
+            maisAtivo = `${prof} (${qtd})`;
+          }
+        }
+        document.getElementById('profMaisAtivo').innerText = maisAtivo;
+
+        // Preenche a tabela
+        dadosAtuais.forEach(item => {
+          const dataFormatada = new Date(item.data_criacao).toLocaleDateString('pt-BR');
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${item.horario}</td>
+            <td>${item.cliente}</td>
+            <td><b>${item.profissional}</b></td>
+            <td>${item.servico}</td>
+            <td>${dataFormatada}</td>
+          `;
+          tabelaCorpo.appendChild(tr);
+        });
+      } catch (erro) {
+        console.error("Erro ao carregar relatório:", erro);
+      }
+    }
+
+    // Função para exportar os dados para CSV (compatível com Excel e Google Planilhas)
+    function exportarExcel() {
+      if (!dadosAtuais || dadosAtuais.length === 0) {
+        alert("Não há dados na tabela para exportar!");
+        return;
+      }
+
+      // Cabeçalho da planilha
+      let conteudoCsv = "Horario;Cliente;Profissional;Servico;Data\n";
+
+      // Adiciona as linhas
+      dadosAtuais.forEach(item => {
+        const dataFormatada = new Date(item.data_criacao).toLocaleDateString('pt-BR');
+        // Usamos ponto e vírgula (;) para que o Excel do Brasil reconheça as colunas automaticamente
+        conteudoCsv += `"${item.horario}";"${item.cliente}";"${item.profissional}";"${item.servico}";"${dataFormatada}"\n`;
+      });
+
+      // \uFEFF adiciona o cabeçalho BOM para garantir acentuação correta no Excel (ex: PÉS, MÃOS)
+      const blob = new Blob(["\uFEFF" + conteudoCsv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      
+      const link = document.createElement("a");
+      const dataInicio = document.getElementById('dataInicio').value;
+      
+      link.setAttribute("href", url);
+      link.setAttribute("download", `relatorio_atendimentos_${dataInicio}.csv`);
+      document.body.appendChild(link);
+      
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // Carrega automaticamente ao abrir a página
+    carregarRelatorio();
+  </script>
+</body>
+</html>

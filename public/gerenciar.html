@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Gerenciar Equipe e Serviços</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; max-width: 600px; margin: auto; background-color: #f4f4f9; }
+    .card { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    h2, h3 { margin-top: 0; color: #333; }
+    
+    .flex-add { display: flex; gap: 10px; margin-bottom: 15px; }
+    input { flex: 1; padding: 10px; font-size: 15px; border-radius: 6px; border: 1px solid #ccc; }
+    button.btn-add { background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    button.btn-add:hover { background: #0056b3; }
+
+    /* Estilo das Listas de Remoção */
+    .lista-itens { list-style: none; padding: 0; margin: 0; max-height: 250px; overflow-y: auto; border: 1px solid #eee; border-radius: 6px; }
+    .item-linha { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; border-bottom: 1px solid #eee; }
+    .item-linha:last-child { border-bottom: none; }
+    .btn-del { background: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; }
+    .btn-del:hover { background: #c82333; }
+  </style>
+</head>
+<body>
+
+  <h2>⚙️ Painel de Configurações</h2>
+
+  <div class="card">
+    <h3>Profissionais</h3>
+    <div class="flex-add">
+      <input type="text" id="inputProf" placeholder="Nome do Novo Profissional">
+      <button class="btn-add" onclick="addProf()">＋ Adicionar</button>
+    </div>
+    <ul class="lista-itens" id="listaProf"></ul>
+  </div>
+
+  <div class="card">
+    <h3>Serviços</h3>
+    <div class="flex-add">
+      <input type="text" id="inputServ" placeholder="Nome do Novo Serviço">
+      <button class="btn-add" onclick="addServ()">＋ Adicionar</button>
+    </div>
+    <ul class="lista-itens" id="listaServ"></ul>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+
+    // Quando conectar ou atualizar, pede as listas mais recentes ao servidor
+    socket.on('atualizar-listas', (dados) => {
+      renderizarProfissionais(dados.profissionais);
+      renderizarServicos(dados.servicos);
+    });
+
+    // Desenha a lista de profissionais na tela com botão Excluir
+    function renderizarProfissionais(lista) {
+      const ul = document.getElementById('listaProf');
+      ul.innerHTML = '';
+      lista.forEach(nome => {
+        const li = document.createElement('li');
+        li.className = 'item-linha';
+        li.innerHTML = `
+          <span>${nome}</span>
+          <button class="btn-del" onclick="removerProf('${nome}')">🗑️ Remover</button>
+        `;
+        ul.appendChild(li);
+      });
+    }
+
+    // Desenha a lista de serviços na tela com botão Excluir
+    function renderizarServicos(lista) {
+      const ul = document.getElementById('listaServ');
+      ul.innerHTML = '';
+      lista.forEach(servico => {
+        const li = document.createElement('li');
+        li.className = 'item-linha';
+        li.innerHTML = `
+          <span>${servico}</span>
+          <button class="btn-del" onclick="removerServ('${servico}')">🗑️ Remover</button>
+        `;
+        ul.appendChild(li);
+      });
+    }
+
+    // Ações de Adicionar
+    function addProf() {
+      const campo = document.getElementById('inputProf');
+      if (campo.value.trim()) {
+        socket.emit('adicionar-item', { tipo: 'profissional', valor: campo.value.trim().toUpperCase() });
+        campo.value = '';
+      }
+    }
+
+    function addServ() {
+      const campo = document.getElementById('inputServ');
+      if (campo.value.trim()) {
+        socket.emit('adicionar-item', { tipo: 'servico', valor: campo.value.trim().toUpperCase() });
+        campo.value = '';
+      }
+    }
+
+    // Ações de Remover
+    function removerProf(nome) {
+      if (confirm(`Deseja remover o profissional "${nome}"?`)) {
+        socket.emit('remover-item', { tipo: 'profissional', valor: nome });
+      }
+    }
+
+    function removerServ(servico) {
+      if (confirm(`Deseja remover o serviço "${servico}"?`)) {
+        socket.emit('remover-item', { tipo: 'servico', valor: servico });
+      }
+    }
+  </script>
+</body>
+</html>

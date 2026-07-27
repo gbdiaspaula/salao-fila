@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Recepção - Chamar Profissional</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; max-width: 450px; margin: auto; background-color: #f4f4f9; }
+    .card { background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    h2 { margin-top: 0; color: #333; text-align: center; }
+    label { font-size: 14px; font-weight: bold; color: #555; display: block; margin-top: 15px; margin-bottom: 5px; }
+    input, select, button { width: 100%; padding: 12px; font-size: 15px; border-radius: 6px; border: 1px solid #ccc; box-sizing: border-box; }
+    select { background-color: #fff; cursor: pointer; }
+    
+    .btn-chamar { background-color: #28a745; color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 20px; font-size: 16px; }
+    .btn-chamar:hover { background-color: #218838; }
+    
+    .btn-config { background-color: #6c757d; color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 15px; font-size: 14px; }
+    .btn-config:hover { background-color: #5a6268; }
+
+    #status { margin-top: 15px; font-size: 14px; text-align: center; font-weight: bold; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h2>Recepção</h2>
+    
+    <label for="cliente">Nome do Cliente:</label>
+    <input type="text" id="cliente" placeholder="Ex: Ana Silva">
+    
+    <label for="profissional">Selecione o Profissional:</label>
+    <select id="profissional">
+      <option value="">-- Selecione o Profissional --</option>
+    </select>
+
+    <label for="servico">Selecione o Serviço:</label>
+    <select id="servico">
+      <option value="">-- Selecione o Serviço --</option>
+    </select>
+    
+    <button id="btnChamar" class="btn-chamar">Chamar no Display</button>
+    <button onclick="abrirGerenciador()" class="btn-config">⚙️ Gerenciar Profissionais / Serviços</button>
+<button onclick="window.open('/relatorio.html', '_blank')" class="btn-config">📊 Ver Relatórios de Atendimento</button>
+    <div id="status">Conectando ao servidor...</div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const selectProfissional = document.getElementById('profissional');
+    const selectServico = document.getElementById('servico');
+    const statusDiv = document.getElementById('status');
+    const btnChamar = document.getElementById('btnChamar');
+
+    // Abre a janela de gerenciamento em uma nova aba
+    function abrirGerenciador() {
+      window.open('/gerenciar.html', '_blank', 'width=650,height=700');
+    }
+
+    // O servidor envia as listas atualizadas automaticamente
+    socket.on('atualizar-listas', (dados) => {
+      // Salva a seleção atual para não perder enquanto digita
+      const profAtual = selectProfissional.value;
+      const servAtual = selectServico.value;
+
+      // Atualiza Profissionais
+      selectProfissional.innerHTML = '<option value="">-- Selecione o Profissional --</option>';
+      dados.profissionais.forEach(nome => {
+        const option = document.createElement('option');
+        option.value = nome;
+        option.textContent = nome;
+        selectProfissional.appendChild(option);
+      });
+      selectProfissional.value = profAtual;
+
+      // Atualiza Serviços
+      selectServico.innerHTML = '<option value="">-- Selecione o Serviço --</option>';
+      dados.servicos.forEach(servico => {
+        const option = document.createElement('option');
+        option.value = servico;
+        option.textContent = servico;
+        selectServico.appendChild(option);
+      });
+      selectServico.value = servAtual;
+    });
+
+    socket.on('connect', () => {
+      statusDiv.innerText = "🟢 Conectado ao Servidor!";
+      statusDiv.style.color = "green";
+    });
+
+    socket.on('disconnect', () => {
+      statusDiv.innerText = "🔴 Desconectado do Servidor!";
+      statusDiv.style.color = "red";
+    });
+
+    btnChamar.addEventListener('click', () => {
+      const clienteInput = document.getElementById('cliente');
+      const cliente = clienteInput.value.trim();
+      const profissional = selectProfissional.value;
+      const servico = selectServico.value;
+
+      if (!cliente || !profissional || !servico) {
+        alert("Por favor, preencha todos os campos!");
+        return;
+      }
+
+      socket.emit('chamar-profissional', { cliente, profissional, servico });
+
+      clienteInput.value = '';
+      selectProfissional.selectedIndex = 0;
+      selectServico.selectedIndex = 0;
+      clienteInput.focus();
+    });
+  </script>
+</body>
+</html>

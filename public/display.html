@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Display - Sala dos Profissionais</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: sans-serif; background: #111; color: #fff; margin: 0; padding: 20px; height: 100vh; display: flex; flex-direction: column; }
+    
+    .aviso-audio { background: #333; color: #ffca28; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 14px; text-align: center; }
+
+    /* Layout Principal em 2 Colunas */
+    .container { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; flex: 1; }
+
+    /* Painel Esquerdo - Chamada Principal */
+    .painel-principal { background: #1a261f; border: 3px solid #00ff88; padding: 30px; border-radius: 16px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; box-shadow: 0 0 20px rgba(0, 255, 136, 0.15); }
+    .titulo-principal { font-size: 1.5rem; color: #888; text-transform: uppercase; margin-bottom: 10px; }
+    .horario-destaque { font-size: 1.8rem; color: #ffca28; font-weight: bold; margin-bottom: 15px; background: rgba(255, 202, 40, 0.1); padding: 5px 15px; border-radius: 20px; }
+    .profissional-nome { font-size: 3.5rem; color: #00ff88; margin: 0; font-weight: bold; }
+    .cliente-nome { font-size: 2.2rem; color: #fff; margin: 15px 0 5px 0; }
+    
+    /* DESTAQUE DO SERVIÇO NO PAINEL PRINCIPAL */
+    .servico-nome { font-size: 1.8rem; color: #ffca28; margin: 10px 0 0 0; font-weight: bold; background: rgba(255, 255, 255, 0.05); padding: 8px 20px; border-radius: 8px; border: 1px solid #444; }
+
+    /* Painel Direito - Histórico */
+    .painel-historico { background: #1e1e1e; border: 1px solid #333; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; }
+    .titulo-historico { font-size: 1.2rem; color: #aaa; text-transform: uppercase; margin-top: 0; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+    .lista-chamados { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+    
+    /* Item do Histórico com Serviço */
+    .item-chamado { background: #2a2a2a; padding: 12px 15px; border-radius: 8px; border-left: 4px solid #00ff88; display: flex; justify-content: space-between; align-items: center; }
+    .info-pessoa { display: flex; flex-direction: column; }
+    .item-prof { font-weight: bold; color: #00ff88; font-size: 1.1rem; }
+    .item-cli { color: #ddd; font-size: 0.95rem; }
+    .item-servico { color: #ffca28; font-size: 0.85rem; font-weight: bold; margin-top: 2px; }
+    .item-hora { color: #aaa; font-weight: bold; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+
+  <div class="aviso-audio">
+    🔊 Clique em qualquer lugar desta tela uma vez para ativar o áudio!
+  </div>
+
+  <div class="container">
+    <div class="painel-principal">
+      <div class="titulo-principal">Último Chamado</div>
+      <div class="horario-destaque" id="horaAtual">--:--</div>
+      <h1 class="profissional-nome" id="profAtual">AGUARDANDO...</h1>
+      <h2 class="cliente-nome" id="cliAtual">Aguardando recepção</h2>
+      <div class="servico-nome" id="servAtual">Aguardando Serviço...</div>
+    </div>
+
+    <div class="painel-historico">
+      <h3 class="titulo-historico">Últimos Chamados</h3>
+      <ul class="lista-chamados" id="listaHistorico"></ul>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const historico = [];
+
+    socket.on('nova-chamada', (data) => {
+      // 1. Atualiza o painel principal com Hora, Profissional, Cliente e Serviço
+      document.getElementById('horaAtual').innerText = `🕒 ${data.horario}`;
+      document.getElementById('profAtual').innerText = data.profissional.toUpperCase();
+      document.getElementById('cliAtual').innerText = `Atender: ${data.cliente}`;
+      document.getElementById('servAtual').innerText = `Serviço: ${data.servico}`;
+
+      // 2. Histórico
+      historico.unshift(data);
+      if (historico.length > 6) historico.pop();
+
+      const listaUl = document.getElementById('listaHistorico');
+      listaUl.innerHTML = '';
+
+      historico.forEach((item) => {
+        const li = document.createElement('li');
+        li.className = 'item-chamado';
+        li.innerHTML = `
+          <div class="info-pessoa">
+            <span class="item-prof">${item.profissional}</span>
+            <span class="item-cli">${item.cliente}</span>
+            <span class="item-servico">🛠️ ${item.servico}</span>
+          </div>
+          <span class="item-hora">${item.horario}</span>
+        `;
+        listaUl.appendChild(li);
+      });
+
+      // 3. Áudio que anuncia o serviço
+      window.speechSynthesis.cancel();
+      const textoMensagem = `Profissional ${data.profissional}, favor atender ${data.cliente} para ${data.servico}`;
+      const mensagem = new SpeechSynthesisUtterance(textoMensagem);
+      mensagem.lang = 'pt-BR';
+      mensagem.rate = 0.9;
+      window.speechSynthesis.speak(mensagem);
+    });
+  </script>
+</body>
+</html>
