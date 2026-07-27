@@ -2,116 +2,161 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Recepção - Chamar Profissional</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recepção - Sistema de Chamadas</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; max-width: 450px; margin: auto; background-color: #f4f4f9; }
+    body { font-family: sans-serif; padding: 20px; max-width: 600px; margin: auto; background-color: #f8f9fa; }
     .card { background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
     h2 { margin-top: 0; color: #333; text-align: center; }
-    label { font-size: 14px; font-weight: bold; color: #555; display: block; margin-top: 15px; margin-bottom: 5px; }
-    input, select, button { width: 100%; padding: 12px; font-size: 15px; border-radius: 6px; border: 1px solid #ccc; box-sizing: border-box; }
-    select { background-color: #fff; cursor: pointer; }
     
-    .btn-chamar { background-color: #28a745; color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 20px; font-size: 16px; }
-    .btn-chamar:hover { background-color: #218838; }
+    .campo { margin-bottom: 15px; display: flex; flex-direction: column; }
+    label { font-size: 14px; font-weight: bold; color: #555; margin-bottom: 5px; }
+    input, select { padding: 10px; font-size: 15px; border: 1px solid #ccc; border-radius: 6px; }
     
-    .btn-config { background-color: #6c757d; color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 15px; font-size: 14px; }
-    .btn-config:hover { background-color: #5a6268; }
+    /* Bloco de múltiplos serviços */
+    .item-servico { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+    .item-servico select { flex: 1; }
+    .btn-remover { background: #dc3545; color: white; border: none; padding: 10px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    
+    .btn-add { background: #17a2b8; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; margin-bottom: 20px; width: 100%; }
+    .btn-add:hover { background: #138496; }
 
-    #status { margin-top: 15px; font-size: 14px; text-align: center; font-weight: bold; }
+    .btn-chamar { background: #28a745; color: white; border: none; padding: 14px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 16px; width: 100%; }
+    .btn-chamar:hover { background: #218838; }
+    
+    .btn-nav { background: #6c757d; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 10px; font-weight: bold; }
   </style>
 </head>
 <body>
 
   <div class="card">
-    <h2>Recepção</h2>
-    
-    <label for="cliente">Nome do Cliente:</label>
-    <input type="text" id="cliente" placeholder="Ex: Ana Silva">
-    
-    <label for="profissional">Selecione o Profissional:</label>
-    <select id="profissional">
-      <option value="">-- Selecione o Profissional --</option>
-    </select>
+    <h2>🛎️ Recepção - Nova Chamada</h2>
 
-    <label for="servico">Selecione o Serviço:</label>
-    <select id="servico">
-      <option value="">-- Selecione o Serviço --</option>
-    </select>
-    
-    <button id="btnChamar" class="btn-chamar">Chamar no Display</button>
-    <button onclick="abrirGerenciador()" class="btn-config">⚙️ Gerenciar Profissionais / Serviços</button>
-<button onclick="window.open('/relatorio.html', '_blank')" class="btn-config">📊 Ver Relatórios de Atendimento</button>
-    <div id="status">Conectando ao servidor...</div>
+    <div class="campo">
+      <label for="cliente">Nome da Cliente:</label>
+      <input type="text" id="cliente" placeholder="Digite o nome da cliente" required>
+    </div>
+
+    <label>Serviços e Profissionais:</label>
+    <div id="listaItens">
+      </div>
+
+    <button class="btn-add" type="button" onclick="adicionarLinhaServico()">➕ Adicionar Outro Serviço/Profissional</button>
+
+    <button class="btn-chamar" onclick="enviarChamada()">📢 Chamar no Display</button>
+
+    <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+
+    <button class="btn-nav" onclick="window.open('relatorio.html', '_blank')">📊 Ver Relatórios</button>
   </div>
 
-  <script src="/socket.io/socket.io.js"></script>
   <script>
-    const socket = io();
-    const selectProfissional = document.getElementById('profissional');
-    const selectServico = document.getElementById('servico');
-    const statusDiv = document.getElementById('status');
-    const btnChamar = document.getElementById('btnChamar');
+    let listaProfissionais = [];
+    let listaServicos = [];
 
-    // Abre a janela de gerenciamento em uma nova aba
-    function abrirGerenciador() {
-      window.open('/gerenciar.html', '_blank', 'width=650,height=700');
+    // Carrega opções de Profissionais e Serviços cadastrados no sistema
+    async function carregarOpcoes() {
+      try {
+        const [resProf, resServ] = await Promise.all([
+          fetch('/api/profissionais'),
+          fetch('/api/servicos')
+        ]);
+        
+        listaProfissionais = await resProf.json();
+        listaServicos = await resServ.json();
+
+        // Adiciona a primeira linha de serviço por padrão
+        adicionarLinhaServico();
+      } catch (erro) {
+        console.error("Erro ao carregar opções:", erro);
+      }
     }
 
-    // O servidor envia as listas atualizadas automaticamente
-    socket.on('atualizar-listas', (dados) => {
-      // Salva a seleção atual para não perder enquanto digita
-      const profAtual = selectProfissional.value;
-      const servAtual = selectServico.value;
+    // Função para adicionar um novo par (Profissional + Serviço)
+    function adicionarLinhaServico() {
+      const container = document.getElementById('listaItens');
+      const div = document.createElement('div');
+      div.className = 'item-servico';
 
-      // Atualiza Profissionais
-      selectProfissional.innerHTML = '<option value="">-- Selecione o Profissional --</option>';
-      dados.profissionais.forEach(nome => {
-        const option = document.createElement('option');
-        option.value = nome;
-        option.textContent = nome;
-        selectProfissional.appendChild(option);
+      // Monta as opções do Select de Profissionais
+      let profOptions = '<option value="">Selecione o Profissional</option>';
+      listaProfissionais.forEach(p => {
+        profOptions += `<option value="${p.nome}">${p.nome}</option>`;
       });
-      selectProfissional.value = profAtual;
 
-      // Atualiza Serviços
-      selectServico.innerHTML = '<option value="">-- Selecione o Serviço --</option>';
-      dados.servicos.forEach(servico => {
-        const option = document.createElement('option');
-        option.value = servico;
-        option.textContent = servico;
-        selectServico.appendChild(option);
+      // Monta as opções do Select de Serviços
+      let servOptions = '<option value="">Selecione o Serviço</option>';
+      listaServicos.forEach(s => {
+        servOptions += `<option value="${s.nome}">${s.nome}</option>`;
       });
-      selectServico.value = servAtual;
-    });
 
-    socket.on('connect', () => {
-      statusDiv.innerText = "🟢 Conectado ao Servidor!";
-      statusDiv.style.color = "green";
-    });
+      div.innerHTML = `
+        <select class="select-prof">${profOptions}</select>
+        <select class="select-serv">${servOptions}</select>
+        <button type="button" class="btn-remover" onclick="removerLinha(this)">❌</button>
+      `;
 
-    socket.on('disconnect', () => {
-      statusDiv.innerText = "🔴 Desconectado do Servidor!";
-      statusDiv.style.color = "red";
-    });
+      container.appendChild(div);
+    }
 
-    btnChamar.addEventListener('click', () => {
-      const clienteInput = document.getElementById('cliente');
-      const cliente = clienteInput.value.trim();
-      const profissional = selectProfissional.value;
-      const servico = selectServico.value;
+    // Remove uma linha de serviço adicionada
+    function removerLinha(botao) {
+      const container = document.getElementById('listaItens');
+      if (container.children.length > 1) {
+        botao.parentElement.remove();
+      } else {
+        alert("A chamada precisa ter pelo menos 1 serviço!");
+      }
+    }
 
-      if (!cliente || !profissional || !servico) {
-        alert("Por favor, preencha todos os campos!");
+    // Envia os dados relacionais para a API
+    async function enviarChamada() {
+      const cliente = document.getElementById('cliente').value.trim();
+      if (!cliente) {
+        alert("Por favor, preencha o nome da cliente!");
         return;
       }
 
-      socket.emit('chamar-profissional', { cliente, profissional, servico });
+      const linhas = document.querySelectorAll('.item-servico');
+      const itens = [];
 
-      clienteInput.value = '';
-      selectProfissional.selectedIndex = 0;
-      selectServico.selectedIndex = 0;
-      clienteInput.focus();
-    });
+      // Coleta todos os pares de Profissional/Serviço preenchidos
+      for (let linha of linhas) {
+        const profissional = linha.querySelector('.select-prof').value;
+        const servico = linha.querySelector('.select-serv').value;
+
+        if (!profissional || !servico) {
+          alert("Por favor, selecione o profissional e o serviço em todos os campos!");
+          return;
+        }
+
+        itens.push({ profissional, servico });
+      }
+
+      try {
+        const resposta = await fetch('/api/chamar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cliente, itens })
+        });
+
+        if (resposta.ok) {
+          alert("Chamada enviada com sucesso!");
+          // Limpa o formulário
+          document.getElementById('cliente').value = '';
+          document.getElementById('listaItens').innerHTML = '';
+          adicionarLinhaServico();
+        } else {
+          alert("Erro ao enviar chamada.");
+        }
+      } catch (erro) {
+        console.error("Erro na requisição:", erro);
+        alert("Falha de conexão com o servidor.");
+      }
+    }
+
+    // Inicializa a tela
+    carregarOpcoes();
   </script>
 </body>
 </html>

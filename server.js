@@ -17,24 +17,27 @@ const db = new sqlite3.Database('./banco.db', (err) => {
 
 // 2. Criação das tabelas
 db.serialize(() => {
-  db.run(`CREATE TABLE IF NOT EXISTS profissionais (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nome TEXT UNIQUE
-  )`);
+  // Tabela principal de chamadas
+  db.run(`
+    CREATE TABLE IF NOT EXISTS chamadas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      cliente TEXT NOT NULL,
+      status TEXT DEFAULT 'aguardando',
+      data_criacao DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 
-  db.run(`CREATE TABLE IF NOT EXISTS servicos (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nome TEXT UNIQUE
-  )`);
-
-  db.run(`CREATE TABLE IF NOT EXISTS chamadas (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    cliente TEXT,
-    profissional TEXT,
-    servico TEXT,
-    horario TEXT,
-    data_criacao DATETIME DEFAULT CURRENT_TIMESTAMP
-  )`);
+  // Tabela relacional para múltiplos serviços e profissionais
+  db.run(`
+    CREATE TABLE IF NOT EXISTS chamada_itens (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chamada_id INTEGER NOT NULL,
+      profissional TEXT NOT NULL,
+      servico TEXT NOT NULL,
+      FOREIGN KEY (chamada_id) REFERENCES chamadas(id) ON DELETE CASCADE
+    )
+  `);
+});
 
   const profsIniciais = [
     "ANA", "ANY EVILYN", "BRUNA MEL", "DANIELA", "ELAINE", 
@@ -113,29 +116,32 @@ io.on('connection', (socket) => {
 });
 
 // 4. Rota do Relatório (OBRIGATÓRIO TER ESTA PARTE)
+// Rota para buscar os dados completos do relatório
 app.get('/api/relatorio', (req, res) => {
   const { dataInicio, dataFim } = req.query;
 
-  let query = `SELECT id, cliente, profissional, servico, horario, data_criacao 
-               FROM chamadas WHERE 1=1`;
-  const params = [];
+  // Consulta SQL com JOIN unificando 'chamadas' e 'chamada_itens'
+  const sql = `
+    SELECT 
+      c.id,
+      c.cliente,
+      ci.profissional,
+      ci.servico,
+      c.data_criacao
+    FROM chamadas c
+    INNER JOIN chamada_itens ci ON c.id = ci.chamada_id
+    WHERE DATE(c.data_criacao) BETWEEN ? AND ?
+    ORDER BY c.data_criacao DESC
+  `;
 
-  if (dataInicio) {
-    query += ` AND date(data_criacao) >= date(?)`;
-    params.push(dataInicio);
-  }
-  if (dataFim) {
-    query += ` AND date(data_criacao) <= date(?)`;
-    params.push(dataFim);
-  }
-
-  query += ` ORDER BY id DESC`;
-
-  db.all(query, params, (err, rows) => {
+  // Executa a consulta no SQLite passando os parâmetros de data
+  db.all(sql, [dataInicio, dataFim], (err, rows) => {
     if (err) {
-      res.status(500).json({ error: err.message });
-      return;
+      console.error("Erro ao buscar relatório:", err.message);
+      return res.status(500).json({ error: "Erro ao buscar dados do relatório." });
     }
+    
+    // Retorna a lista de atendimentos para o frontend
     res.json(rows);
   });
 });
